@@ -40,6 +40,7 @@
 <img id="logo-left" src="LOGO_IRFU_200.png" alt="Logo gauche" />
 <img id="logo-right" src="NewGain_LOGO-1024x259.png" alt="Logo droite" />
 
+<!-- THREE.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/RGBELoader.js"></script>
@@ -55,13 +56,33 @@
     renderer.xr.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // AR Button
-    document.body.appendChild(THREE.ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
+    // === ARButton ===
+    if (navigator.xr) {
+        document.body.appendChild(
+            THREE.ARButton.createButton(renderer, {
+                requiredFeatures: ['hit-test'],
+                optionalFeatures: ['dom-overlay'],
+                domOverlay: { root: document.body }
+            })
+        );
+    } else {
+        const msg = document.createElement('div');
+        msg.innerText = "WebXR AR non supporté sur ce navigateur/appareil";
+        msg.style.position = 'absolute';
+        msg.style.top = '50%';
+        msg.style.left = '50%';
+        msg.style.transform = 'translate(-50%, -50%)';
+        msg.style.backgroundColor = 'rgba(0,0,0,0.8)';
+        msg.style.color = 'white';
+        msg.style.padding = '12px 20px';
+        msg.style.borderRadius = '8px';
+        document.body.appendChild(msg);
+    }
 
-    // Lumière
+    // === Lumières ===
     scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1));
 
-    // Charger la description
+    // === Description ===
     fetch('NEWGAIN_description.txt')
         .then(resp => resp.text())
         .then(txt => document.getElementById('explication').innerText = txt);
@@ -129,7 +150,7 @@
 
     loadParticles("particles_NG_1.txt");
 
-    // === Hit-test AR pour placement modèle ===
+    // === Hit-test pour placement AR ===
     let hitTestSource = null;
     let localSpace = null;
     let modelPlaced = false;
@@ -147,6 +168,7 @@
         });
     });
 
+    // === Boucle animation AR ===
     function animateAR(time, frame){
         if(frame && hitTestSource && !modelPlaced){
             const hitTestResults = frame.getHitTestResults(hitTestSource);
