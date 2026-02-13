@@ -98,7 +98,7 @@
         pmremGenerator.dispose();
 
         const loader = new THREE.GLTFLoader();
-        loader.load('dumyRFQ_4webpagetest.glb', (gltf) => {
+        loader.load('dumyRFQ_4webpagetest_centered.glb', (gltf) => {
           gltf.scene.traverse(child => {
             if (child.isMesh) {
               child.material = new THREE.MeshStandardMaterial({
