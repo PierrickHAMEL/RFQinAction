@@ -2,16 +2,18 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RFQ en Réalité Augmentée</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFQ AR avec Particules</title>
 <style>
-    body { margin: 0; background-color: #111; font-family: sans-serif; }
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
     #explication {
         position: absolute;
         bottom: 10px;
         left: 50%;
         transform: translateX(-50%);
         color: white;
+        font-family: sans-serif;
         font-size: 14px;
         background-color: rgba(0,0,0,0.6);
         padding: 8px 16px;
@@ -19,6 +21,7 @@
         text-align: center;
         max-width: 90%;
         z-index: 10;
+        pointer-events: none;
     }
     #logo-left, #logo-right {
         position: absolute;
@@ -30,10 +33,6 @@
     }
     #logo-left { left: 10px; }
     #logo-right { right: 10px; }
-    model-viewer {
-        width: 100vw;
-        height: 100vh;
-    }
 </style>
 </head>
 <body>
@@ -42,29 +41,132 @@
 <img id="logo-left" src="LOGO_IRFU_200.png" alt="Logo gauche">
 <img id="logo-right" src="NewGain_LOGO-1024x259.png" alt="Logo droite">
 
-<!-- Model Viewer pour AR -->
-<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-
-<model-viewer 
-    id="arModel"
-    src="dumyRFQ_4webpagetest.glb" 
-    ios-src="dumyRFQ_4webpagetest.usdz"
-    alt="Modèle RFQ"
-    camera-controls
-    auto-rotate
-    ar
-    ar-modes="webxr scene-viewer quick-look"
-    environment-image="neutral.hdr"
-    shadow-intensity="1"
-    exposure="1">
-</model-viewer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/webxr/ARButton.js"></script>
 
 <script>
-    // Charger la description
-    fetch('NEWGAIN_description.txt')
-        .then(resp => resp.text())
-        .then(txt => document.getElementById('explication').innerText = txt)
-        .catch(err => console.error("Erreur chargement description:", err));
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.01, 20);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.xr.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+// === ARButton ===
+document.body.appendChild(THREE.ARButton.createButton(renderer, {
+    requiredFeatures: ['hit-test']
+}));
+
+// Lumières
+const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+scene.add(light);
+
+// Charger modèle
+let rfqModel = null;
+const loader = new THREE.GLTFLoader();
+loader.load('dumyRFQ_4webpagetest.glb', (gltf)=>{
+    rfqModel = gltf.scene;
+    rfqModel.traverse(c=>{
+        if(c.isMesh) c.material = new THREE.MeshStandardMaterial({color:0xb87333, metalness:1, roughness:0.3});
+    });
+    rfqModel.scale.set(0.001,0.001,0.001); // mm → m
+});
+
+// Particules
+let particleSystem;
+let frames=[], currentFrame=0, lastFrameTime=0;
+const frameInterval = 100;
+
+async function loadParticles(file){
+    const resp = await fetch(file);
+    const text = await resp.text();
+    const lines = text.trim().split("\n");
+    frames=[]; let frame=[];
+    lines.forEach(line=>{
+        if(line.startsWith("#")){
+            if(frame.length) frames.push(frame);
+            frame=[];
+        } else {
+            const [x,y,z]=line.split(" ").map(Number);
+            frame.push(x,y,z);
+        }
+    });
+    if(frame.length) frames.push(frame);
+    createParticles(frames[0]);
+}
+
+function createParticles(pos){
+    if(particleSystem) scene.remove(particleSystem);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos),3));
+    const mat = new THREE.PointsMaterial({color:0xffff00, size:0.01});
+    particleSystem = new THREE.Points(geo, mat);
+    particleSystem.scale.set(0.001,0.001,0.001);
+    scene.add(particleSystem);
+}
+
+function updateParticles(time){
+    if(!frames.length || !particleSystem) return;
+    if(time - lastFrameTime > frameInterval){
+        currentFrame = (currentFrame+1)%frames.length;
+        const pos = new Float32Array(frames[currentFrame]);
+        particleSystem.geometry.setAttribute('position', new THREE.BufferAttribute(pos,3));
+        particleSystem.geometry.attributes.position.needsUpdate=true;
+        lastFrameTime=time;
+    }
+}
+
+loadParticles("particles_NG_1.txt");
+
+// === Hit-test AR ===
+let hitTestSource = null;
+let localSpace = null;
+let modelPlaced = false;
+
+renderer.xr.addEventListener('sessionstart', async ()=>{
+    const session = renderer.xr.getSession();
+    const viewerSpace = await session.requestReferenceSpace('viewer');
+    hitTestSource = await session.requestHitTestSource({space:viewerSpace});
+    localSpace = await session.requestReferenceSpace('local');
+
+    session.addEventListener('select', ()=>{
+        if(rfqModel && !modelPlaced){
+            scene.add(rfqModel);
+            modelPlaced = true;
+        }
+    });
+
+    session.addEventListener('end', ()=>{
+        hitTestSource = null; localSpace = null; modelPlaced=false;
+    });
+});
+
+function animateAR(time, frame){
+    if(frame && hitTestSource && rfqModel && !modelPlaced){
+        const hits = frame.getHitTestResults(hitTestSource);
+        if(hits.length>0){
+            const pose = hits[0].getPose(localSpace);
+            rfqModel.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
+            rfqModel.quaternion.set(
+                pose.transform.orientation.x,
+                pose.transform.orientation.y,
+                pose.transform.orientation.z,
+                pose.transform.orientation.w
+            );
+        }
+    }
+    updateParticles(time);
+    renderer.render(scene, camera);
+}
+
+renderer.setAnimationLoop(animateAR);
+
+window.addEventListener("resize", ()=>{
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+});
 </script>
 
 </body>
