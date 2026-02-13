@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>RFQ en réalité augmentée</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RFQ en Réalité Augmentée</title>
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; }
@@ -37,13 +37,12 @@
 </head>
 <body>
 <div id="explication"></div>
-<img id="logo-left" src="LOGO_IRFU_200.png" alt="Logo gauche" />
-<img id="logo-right" src="NewGain_LOGO-1024x259.png" alt="Logo droite" />
+<img id="logo-left" src="LOGO_IRFU_200.png" alt="Logo gauche">
+<img id="logo-right" src="NewGain_LOGO-1024x259.png" alt="Logo droite">
 
 <!-- THREE.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/RGBELoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/webxr/ARButton.js"></script>
 
 <script>
@@ -56,30 +55,16 @@
     renderer.xr.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // === ARButton ===
-    if (navigator.xr) {
-        document.body.appendChild(
-            THREE.ARButton.createButton(renderer, {
-                requiredFeatures: ['hit-test'],
-                optionalFeatures: ['dom-overlay'],
-                domOverlay: { root: document.body }
-            })
-        );
-    } else {
-        const msg = document.createElement('div');
-        msg.innerText = "WebXR AR non supporté sur ce navigateur/appareil";
-        msg.style.position = 'absolute';
-        msg.style.top = '50%';
-        msg.style.left = '50%';
-        msg.style.transform = 'translate(-50%, -50%)';
-        msg.style.backgroundColor = 'rgba(0,0,0,0.8)';
-        msg.style.color = 'white';
-        msg.style.padding = '12px 20px';
-        msg.style.borderRadius = '8px';
-        document.body.appendChild(msg);
-    }
+    // === ARButton pour Android Chrome ===
+    document.body.appendChild(
+        THREE.ARButton.createButton(renderer, {
+            requiredFeatures: ['hit-test'],
+            optionalFeatures: ['dom-overlay'],
+            domOverlay: { root: document.body }
+        })
+    );
 
-    // === Lumières ===
+    // === Lumière ===
     scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1));
 
     // === Description ===
@@ -93,7 +78,7 @@
     gltfLoader.load('dumyRFQ_4webpagetest.glb', (gltf) => {
         rfqModel = gltf.scene;
         rfqModel.traverse((child) => {
-            if(child.isMesh) {
+            if(child.isMesh){
                 child.material = new THREE.MeshStandardMaterial({
                     color: 0xb87333,
                     metalness: 1,
@@ -101,23 +86,23 @@
                 });
             }
         });
-        rfqModel.scale.set(0.001, 0.001, 0.001); // mm -> m
+        rfqModel.scale.set(0.001,0.001,0.001); // mm -> m
     });
 
     // === Particules ===
     let particleSystem, frames = [], currentFrame = 0, lastFrameTime = 0;
     const frameInterval = 100;
 
-    async function loadParticles(file) {
+    async function loadParticles(file){
         const resp = await fetch(file);
         const text = await resp.text();
         const lines = text.trim().split("\n");
         frames = [];
         let frame = [];
-        lines.forEach(line => {
-            if(line.startsWith("#")) {
+        lines.forEach(line=>{
+            if(line.startsWith("#")){
                 if(frame.length) frames.push(frame);
-                frame = [];
+                frame=[];
             } else {
                 const [x,y,z] = line.split(" ").map(Number);
                 frame.push(x,y,z);
@@ -142,7 +127,7 @@
         if(time - lastFrameTime > frameInterval){
             currentFrame = (currentFrame + 1) % frames.length;
             const pos = new Float32Array(frames[currentFrame]);
-            particleSystem.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            particleSystem.geometry.setAttribute('position', new THREE.BufferAttribute(pos,3));
             particleSystem.geometry.attributes.position.needsUpdate = true;
             lastFrameTime = time;
         }
@@ -150,29 +135,38 @@
 
     loadParticles("particles_NG_1.txt");
 
-    // === Hit-test pour placement AR ===
+    // === Hit-test pour placement AR au toucher ===
     let hitTestSource = null;
     let localSpace = null;
     let modelPlaced = false;
 
-    renderer.xr.addEventListener('sessionstart', async () => {
+    renderer.xr.addEventListener('sessionstart', async ()=>{
         const session = renderer.xr.getSession();
         const viewerSpace = await session.requestReferenceSpace('viewer');
         hitTestSource = await session.requestHitTestSource({space: viewerSpace});
         localSpace = await session.requestReferenceSpace('local');
 
-        session.addEventListener('end', () => {
+        // Placer modèle au toucher
+        session.addEventListener('select', ()=>{
+            if(rfqModel && !modelPlaced){
+                rfqModel.position.set(0,0,-0.5); // sera replacé automatiquement
+                scene.add(rfqModel);
+                modelPlaced = true;
+            }
+        });
+
+        session.addEventListener('end', ()=>{
             hitTestSource = null;
             localSpace = null;
             modelPlaced = false;
         });
     });
 
-    // === Boucle animation AR ===
+    // === Boucle AR ===
     function animateAR(time, frame){
-        if(frame && hitTestSource && !modelPlaced){
+        if(frame && hitTestSource && rfqModel && !modelPlaced){
             const hitTestResults = frame.getHitTestResults(hitTestSource);
-            if(hitTestResults.length > 0 && rfqModel){
+            if(hitTestResults.length>0){
                 const pose = hitTestResults[0].getPose(localSpace);
                 rfqModel.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
                 rfqModel.quaternion.set(
@@ -181,8 +175,6 @@
                     pose.transform.orientation.z,
                     pose.transform.orientation.w
                 );
-                scene.add(rfqModel);
-                modelPlaced = true;
             }
         }
 
