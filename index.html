@@ -3,16 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AR Simple avec model-viewer</title>
+  <title>Three.js + AR Button</title>
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
   <style>
-    body {
-      margin: 0;
-      font-family: sans-serif;
-      background-color: #111;
-      color: white;
-    }
-    /* Bandeau en haut pour le bouton AR et titre */
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    canvas { display: block; }
+
+    /* Bandeau pour le bouton AR */
     #ar-banner {
       position: fixed;
       top: 0;
@@ -28,37 +25,113 @@
       padding: 0 20px;
       box-sizing: border-box;
     }
+
     #ar-banner h1 {
       font-size: 16px;
+      color: white;
       margin: 0;
     }
+
     model-viewer {
+      width: 100px;
+      height: 50px;
+    }
+
+    /* Décaler le canvas de Three.js pour ne pas être caché par le bandeau */
+    #threejs-container {
+      position: absolute;
+      top: 60px;
+      left: 0;
       width: 100%;
-      height: 100vh;
-      margin-top: 60px; /* pour laisser place au bandeau */
-      background-color: #111;
+      height: calc(100vh - 60px);
     }
   </style>
 </head>
 <body>
-
+  <!-- Bandeau AR -->
   <div id="ar-banner">
     <h1>Mon modèle AR</h1>
-    <!-- Le bouton AR est intégré automatiquement par model-viewer -->
+    <!-- model-viewer minimal pour bouton AR -->
+    <model-viewer 
+      src="dumyRFQ_4webpagetest.glb" 
+      alt="RFQ Model"
+      ar 
+      ar-modes="webxr scene-viewer quick-look"
+      camera-controls 
+      style="background: transparent;">
+    </model-viewer>
   </div>
 
-  <!-- model-viewer pour le modèle 3D + AR -->
-  <model-viewer 
-    src="dumyRFQ_4webpagetest.glb" 
-    alt="RFQ Model" 
-    ar 
-    ar-modes="webxr scene-viewer quick-look" 
-    camera-controls 
-    environment-image="https://threejs.org/examples/textures/equirectangular/venice_sunset_1k.hdr" 
-    exposure="1" 
-    auto-rotate
-    style="background-color: #111;">
-  </model-viewer>
+  <!-- Conteneur pour Three.js -->
+  <div id="threejs-container"></div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/RGBELoader.js"></script>
+
+  <script>
+    // === Three.js setup ===
+    const container = document.getElementById('threejs-container');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / (window.innerHeight-60), 1, 5000*4);
+    camera.position.set(100, 100, 7000);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight-60);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.update();
+
+    // HDRI + GLB
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    new THREE.RGBELoader()
+      .setDataType(THREE.UnsignedByteType)
+      .load('https://threejs.org/examples/textures/equirectangular/venice_sunset_1k.hdr', (texture) => {
+        const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+        scene.environment = envMap;
+        scene.background = new THREE.Color(0x111111);
+        texture.dispose();
+        pmremGenerator.dispose();
+
+        const loader = new THREE.GLTFLoader();
+        loader.load('dumyRFQ_4webpagetest.glb', (gltf) => {
+          gltf.scene.traverse(child => {
+            if (child.isMesh) {
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0xb87333,
+                metalness: 1,
+                roughness: 0.2,
+                envMap: scene.environment
+              });
+            }
+          });
+          scene.add(gltf.scene);
+        });
+      });
+
+    // Lumières
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(500, 300, 500);
+    scene.add(dirLight);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener("resize", () => {
+      renderer.setSize(window.innerWidth, window.innerHeight-60);
+      camera.aspect = window.innerWidth / (window.innerHeight-60);
+      camera.updateProjectionMatrix();
+    });
+  </script>
 </body>
 </html>
