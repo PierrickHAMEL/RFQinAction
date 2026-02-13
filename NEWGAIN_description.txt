@@ -1,0 +1,1 @@
+The 352 MHz Radio Frequency Quadrupole (RFQ) for the European Spallation Source ERIC (ESS) has been delivered by the end of 2019. It has been provided by CEA, IRFU, Saclay/France. It consists of five sections with a total length of 4.6 m and accelerates the 70 mA proton beam from 75 keV up to 3.6 MeV.
