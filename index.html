@@ -1,143 +1,82 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AR + Three.js OK</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR RFQ Model</title>
 
-<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <!-- Model Viewer -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 
-<style>
-html, body {
-    margin: 0;
-    height: 100%;
-    background: #111;
-    font-family: sans-serif;
-}
+  <style>
+    body { 
+      margin: 0; 
+      font-family: sans-serif; 
+      background: #111; 
+    }
 
-/* === LAYOUT GLOBAL === */
-#container {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-}
+    /* === BANDEAU AR === */
+    #ar-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      gap: 20px;
+      padding: 0 20px;
+      box-sizing: border-box;
+    }
 
-/* === BANDEAU AR === */
-#ar-banner {
-    height: 70px;
-    background: rgba(0,0,0,0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
-    z-index: 10;
-}
+    #ar-banner h1 {
+      color: white;
+      font-size: 16px;
+      margin: 0;
+    }
 
-#ar-banner h1 {
-    color: white;
-    font-size: 16px;
-    margin: 0;
-}
+    model-viewer {
+      width: 120px;
+      height: 50px;
+      background: transparent;
+    }
 
-model-viewer {
-    width: 120px;
-    height: 60px;
-    background: transparent;
-}
-
-/* === ZONE THREE === */
-#three-container {
-    flex: 1;
-    position: relative;
-}
-</style>
+    /* === CONTENU EN DESSOUS === */
+    #content {
+      margin-top: 60px; /* IMPORTANT : espace sous le bandeau */
+      height: 2000px;   /* juste pour voir du scroll */
+      background: white;
+    }
+  </style>
 </head>
 
 <body>
 
-<div id="container">
+  <!-- Bandeau AR -->
+  <div id="ar-banner">
+    <h1>Voir en AR</h1>
+    <model-viewer
+      src="dumyRFQ_4webpagetest_centered.glb"
+      alt="RFQ Model"
+      ar
+      ar-modes="webxr scene-viewer quick-look"
+      camera-controls
+      exposure="1"
+      scale="0.001 0.001 0.001"
+      shadow-intensity="1"
+      shadow-softness="1"
+      reveal="interaction"
+      autoplay
+      style="background: transparent;"
+      poster-color="#b87333">
+    </model-viewer>
+  </div>
 
-    <!-- ===== AR ===== -->
-    <div id="ar-banner">
-        <h1>Voir en AR</h1>
-        <model-viewer
-            src="dumyRFQ_4webpagetest_centered.glb"
-            alt="RFQ Model"
-            ar
-            ar-modes="webxr scene-viewer quick-look"
-            camera-controls
-            exposure="1"
-            scale="0.001 0.001 0.001"
-            shadow-intensity="1"
-            shadow-softness="1"
-            reveal="interaction"
-            autoplay>
-        </model-viewer>
-    </div>
-
-    <!-- ===== THREE ===== -->
-    <div id="three-container"></div>
-
-</div>
-
-
-<!-- THREE -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
-
-<script>
-
-const container = document.getElementById("three-container");
-
-/* SCENE */
-const scene = new THREE.Scene();
-
-const camera = new THREE.PerspectiveCamera(
-    75,
-    container.clientWidth / container.clientHeight,
-    1,
-    20000
-);
-
-camera.position.set(0, 200, 3000);
-
-/* RENDERER */
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(container.clientWidth, container.clientHeight);
-container.appendChild(renderer.domElement);
-
-/* CONTROLS */
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-
-/* LIGHT */
-scene.add(new THREE.AmbientLight(0xffffff, 1));
-
-/* MODEL */
-new THREE.GLTFLoader().load("dumyRFQ_4webpagetest.glb", (gltf) => {
-    scene.add(gltf.scene);
-});
-
-/* LOOP */
-function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene, camera);
-}
-animate();
-
-/* RESIZE */
-function resize() {
-    const w = container.clientWidth;
-    const h = container.clientHeight;
-    renderer.setSize(w, h);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-}
-window.addEventListener("resize", resize);
-resize();
-
-</script>
+  <!-- Page blanche -->
+  <div id="content"></div>
 
 </body>
 </html>
