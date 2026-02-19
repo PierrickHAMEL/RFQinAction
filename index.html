@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RFQ Visualization</title>
+<title>AR + Simulation RFQ</title>
 
 <!-- Model Viewer -->
 <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
@@ -18,69 +18,48 @@
 body {
     margin: 0;
     overflow: hidden;
+    background: #111;
     font-family: sans-serif;
-    background: #0a0a0a;
 }
 
-/* TOP BAR */
-#top-ui {
+/* Bandeau AR */
+#ar-banner {
     position: fixed;
     top: 0;
     width: 100%;
-    height: 70px;
-    background: linear-gradient(90deg, #111, #1a1a1a);
+    height: 60px;
+    background: rgba(0,0,0,0.7);
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0 30px;
-    box-sizing: border-box;
-    color: white;
+    justify-content: center;
     z-index: 1000;
+    gap: 20px;
 }
 
-#title {
-    font-size: 18px;
-    font-weight: bold;
-    letter-spacing: 1px;
-}
-
-/* AR BUTTON */
-#ar-button {
-    background: #b87333;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 10px;
+#ar-banner h1 {
     color: white;
-    cursor: pointer;
-    font-weight: bold;
-    transition: 0.2s;
+    font-size: 16px;
 }
 
-#ar-button:hover {
-    background: #d18b4a;
-}
-
-/* 3D VIEW */
+/* Zone 3D */
 #viewer-container {
     position: absolute;
-    top: 70px;
+    top: 60px;
     width: 100%;
-    height: calc(100vh - 70px);
+    height: calc(100vh - 60px);
 }
 
-/* OVERLAY TEXT */
 #explication {
     position: absolute;
-    bottom: 15px;
+    bottom: 10px;
     left: 50%;
     transform: translateX(-50%);
     color: white;
     font-size: 14px;
     background-color: rgba(0,0,0,0.6);
-    padding: 10px 18px;
-    border-radius: 10px;
-    max-width: 80%;
-    text-align: center;
+    padding: 8px 16px;
+    border-radius: 8px;
+    z-index: 10;
 }
 
 #viewLabel {
@@ -89,11 +68,10 @@ body {
     left: 50%;
     transform: translate(-50%, -50%);
     color: white;
-    font-size: 26px;
-    font-weight: bold;
-    background-color: rgba(0,0,0,0.5);
-    padding: 12px 24px;
-    border-radius: 12px;
+    font-size: 22px;
+    background-color: rgba(0,0,0,0.4);
+    padding: 10px 20px;
+    border-radius: 10px;
     opacity: 0;
     transition: opacity 0.5s;
 }
@@ -102,41 +80,31 @@ body {
 
 <body>
 
-<!-- UI -->
-<div id="top-ui">
-    <div id="title">RFQ Beam Dynamics Visualization</div>
-    <button id="ar-button">Voir en AR</button>
+<!-- AR -->
+<div id="ar-banner">
+    <h1>Voir en AR</h1>
+    <model-viewer
+        src="dumyRFQ_4webpagetest_centered.glb"
+        ar
+        camera-controls
+        scale="0.001 0.001 0.001">
+    </model-viewer>
 </div>
 
-<!-- AR hidden -->
-<model-viewer id="ar-viewer"
-    src="dumyRFQ_4webpagetest_centered.glb"
-    ar
-    ar-modes="webxr scene-viewer quick-look"
-    camera-controls
-    scale="0.001 0.001 0.001"
-    style="display:none;">
-</model-viewer>
-
-<!-- 3D -->
+<!-- Simulation -->
 <div id="viewer-container"></div>
 
-<div id="explication">Chargement...</div>
+<div id="explication"></div>
 <div id="viewLabel"></div>
 
 <script>
 
-// ==================== AR ====================
-document.getElementById("ar-button").addEventListener("click", () => {
-    document.getElementById("ar-viewer").activateAR();
-});
-
-// ==================== SCENE ====================
+// === SCENE ===
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(
     75,
-    window.innerWidth / (window.innerHeight - 70),
+    window.innerWidth / (window.innerHeight - 60),
     1,
     20000
 );
@@ -144,109 +112,55 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.set(100, 100, 7000);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight - 70);
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight - 60);
 
 document.getElementById("viewer-container")
         .appendChild(renderer.domElement);
 
 // CONTROLS
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
 
-// ==================== LIGHT ====================
+// === MODEL ===
+const loader = new THREE.GLTFLoader();
+loader.load('dumyRFQ_4webpagetest.glb', (gltf) => {
+    scene.add(gltf.scene);
+});
+
+// === LIGHT ===
 scene.add(new THREE.AmbientLight(0xffffff, 1));
 
-// ==================== HDR ====================
-const pmrem = new THREE.PMREMGenerator(renderer);
-new THREE.RGBELoader().load(
-    'https://threejs.org/examples/textures/equirectangular/venice_sunset_1k.hdr',
-    (hdr) => {
-        const envMap = pmrem.fromEquirectangular(hdr).texture;
-        scene.environment = envMap;
-    }
-);
+// === PARTICULES ===
+let particles;
+const geometry = new THREE.BufferGeometry();
+const positions = new Float32Array(3000);
 
-// ==================== MODEL ====================
-new THREE.GLTFLoader().load(
-    'dumyRFQ_4webpagetest.glb',
-    (gltf) => {
-        gltf.scene.traverse((child) => {
-            if (child.isMesh) {
-                child.material.metalness = 1;
-                child.material.roughness = 0.2;
-            }
-        });
-        scene.add(gltf.scene);
-    }
-);
-
-// ==================== PARTICLES ====================
-let particleSystem;
-const count = 2000;
-const positions = new Float32Array(count * 3);
-
-for (let i = 0; i < count * 3; i++) {
-    positions[i] = (Math.random() - 0.5) * 4000;
+for (let i = 0; i < 3000; i++) {
+    positions[i] = (Math.random() - 0.5) * 5000;
 }
 
-const geo = new THREE.BufferGeometry();
-geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-const mat = new THREE.PointsMaterial({
+const material = new THREE.PointsMaterial({
     color: 0xffff00,
-    size: 2,
-    transparent: true
+    size: 2
 });
 
-particleSystem = new THREE.Points(geo, mat);
-scene.add(particleSystem);
+particles = new THREE.Points(geometry, material);
+scene.add(particles);
 
-// ==================== TEXT ====================
-fetch('NEWGAIN_description.txt')
-.then(r => r.text())
-.then(txt => document.getElementById("explication").innerText = txt)
-.catch(() => {
-    document.getElementById("explication").innerText =
-        "Simulation RFQ : propagation et focalisation du faisceau.";
-});
-
-// ==================== CAMERA VIEWS ====================
-const views = [
-    new THREE.Vector3(300, 100, 7000),
-    new THREE.Vector3(-200, -200, 0),
-    new THREE.Vector3(300, 300, 0)
-];
-
-let currentView = 0;
-
-window.addEventListener("keydown", (e) => {
-    if (e.code === "Space") {
-        currentView = (currentView + 1) % views.length;
-        camera.position.copy(views[currentView]);
-
-        const label = document.getElementById("viewLabel");
-        label.innerText = "Vue " + (currentView + 1);
-        label.style.opacity = 1;
-        setTimeout(() => label.style.opacity = 0, 1000);
-    }
-});
-
-// ==================== ANIMATION ====================
+// === ANIMATION ===
 function animate() {
     requestAnimationFrame(animate);
-
-    particleSystem.rotation.y += 0.001;
-
+    particles.rotation.y += 0.002;
     controls.update();
     renderer.render(scene, camera);
 }
 
 animate();
 
-// ==================== RESIZE ====================
+// === RESIZE ===
 window.addEventListener("resize", () => {
-    const h = window.innerHeight - 70;
+    const h = window.innerHeight - 60;
     renderer.setSize(window.innerWidth, h);
     camera.aspect = window.innerWidth / h;
     camera.updateProjectionMatrix();
