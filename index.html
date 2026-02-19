@@ -262,15 +262,16 @@
 			
         });
 		
-		// === DOUBLE TAP (mobile) ===
+		// === DOUBLE TAP (mobile fiable) ===
 		let lastTap = 0;
 
-		window.addEventListener("touchend", (e) => {
-			const currentTime = new Date().getTime();
-			const tapLength = currentTime - lastTap;
+		renderer.domElement.addEventListener("touchend", (e) => {
+			const now = performance.now();
+			const delta = now - lastTap;
 
-			if (tapLength < 300 && tapLength > 0) {
-				// Double tap détecté
+			if (delta > 0 && delta < 300) {
+				e.preventDefault(); // IMPORTANT
+
 				nextCameraView();
 
 				const comment = viewComments[currentView];
@@ -298,8 +299,8 @@
 				}, transitionDuration);
 			}
 
-			lastTap = currentTime;
-		});
+			lastTap = now;
+		}, { passive: false });
 
 
         // === Boucle d'animation ===
