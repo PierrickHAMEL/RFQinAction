@@ -259,7 +259,48 @@
                     commentDiv.remove();
                 }, transitionDuration); // Supprime après 2 secondes
             }
+			
         });
+		
+		// === DOUBLE TAP (mobile) ===
+		let lastTap = 0;
+
+		window.addEventListener("touchend", (e) => {
+			const currentTime = new Date().getTime();
+			const tapLength = currentTime - lastTap;
+
+			if (tapLength < 300 && tapLength > 0) {
+				// Double tap détecté
+				nextCameraView();
+
+				const comment = viewComments[currentView];
+
+				const commentDiv = document.createElement("div");
+				commentDiv.style.position = "absolute";
+				commentDiv.style.top = "50%";
+				commentDiv.style.left = "20px";
+				commentDiv.style.transform = "translateY(-50%)";
+				commentDiv.style.color = "white";
+				commentDiv.style.backgroundColor = "rgba(0,0,0,0.8)";
+				commentDiv.style.padding = "10px";
+				commentDiv.style.borderRadius = "8px";
+				commentDiv.style.fontFamily = "sans-serif";
+				commentDiv.style.fontSize = "14px";
+				commentDiv.style.maxWidth = "200px";
+				commentDiv.style.wordWrap = "break-word";
+				commentDiv.style.boxShadow = "0 0 10px rgba(0,0,0,0.5)";
+				commentDiv.innerText = comment;
+
+				document.body.appendChild(commentDiv);
+
+				setTimeout(() => {
+					commentDiv.remove();
+				}, transitionDuration);
+			}
+
+			lastTap = currentTime;
+		});
+
 
         // === Boucle d'animation ===
         function animate(time = 0) {
