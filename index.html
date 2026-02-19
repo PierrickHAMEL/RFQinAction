@@ -3,83 +3,83 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AR + Three.js split</title>
+<title>AR + Three.js OK</title>
 
 <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 
 <style>
-    body {
-        margin: 0;
-        font-family: sans-serif;
-        background: #111;
-    }
+html, body {
+    margin: 0;
+    height: 100%;
+    background: #111;
+    font-family: sans-serif;
+}
 
-    /* === PARTIE HAUTE (AR) === */
-    #top-section {
-        height: 120px;
-        background: rgba(0,0,0,0.9);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 20px;
-    }
+/* === LAYOUT GLOBAL === */
+#container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
 
-    #top-section h1 {
-        color: white;
-        font-size: 16px;
-        margin: 0;
-    }
+/* === BANDEAU AR === */
+#ar-banner {
+    height: 70px;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 10;
+}
 
-    model-viewer {
-        width: 120px;
-        height: 60px;
-    }
+#ar-banner h1 {
+    color: white;
+    font-size: 16px;
+    margin: 0;
+}
 
-    /* === PARTIE BASSE (3D) === */
-    #bottom-section {
-        height: calc(100vh - 120px);
-        position: relative;
-        overflow: hidden;
-    }
+model-viewer {
+    width: 120px;
+    height: 60px;
+    background: transparent;
+}
 
-    canvas {
-        display: block;
-    }
-
-    #viewLabel {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: white;
-        font-size: 22px;
-        background: rgba(0,0,0,0.5);
-        padding: 10px;
-        border-radius: 10px;
-        opacity: 0;
-        transition: opacity 0.5s;
-    }
+/* === ZONE THREE === */
+#three-container {
+    flex: 1;
+    position: relative;
+}
 </style>
 </head>
 
 <body>
 
-<!-- === HAUT === -->
-<div id="top-section">
-    <h1>Voir en AR</h1>
-    <model-viewer
-        src="dumyRFQ_4webpagetest_centered.glb"
-        ar
-        ar-modes="webxr scene-viewer quick-look"
-        camera-controls
-        auto-rotate>
-    </model-viewer>
+<div id="container">
+
+    <!-- ===== AR ===== -->
+    <div id="ar-banner">
+        <h1>Voir en AR</h1>
+        <model-viewer
+            src="dumyRFQ_4webpagetest_centered.glb"
+            alt="RFQ Model"
+            ar
+            ar-modes="webxr scene-viewer quick-look"
+            camera-controls
+            exposure="1"
+            scale="0.001 0.001 0.001"
+            shadow-intensity="1"
+            shadow-softness="1"
+            reveal="interaction"
+            autoplay>
+        </model-viewer>
+    </div>
+
+    <!-- ===== THREE ===== -->
+    <div id="three-container"></div>
+
 </div>
 
-<!-- === BAS === -->
-<div id="bottom-section">
-    <div id="viewLabel"></div>
-</div>
 
 <!-- THREE -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -87,7 +87,8 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
 
 <script>
-const container = document.getElementById("bottom-section");
+
+const container = document.getElementById("three-container");
 
 /* SCENE */
 const scene = new THREE.Scene();
@@ -98,9 +99,11 @@ const camera = new THREE.PerspectiveCamera(
     1,
     20000
 );
-camera.position.set(100,100,7000);
 
-const renderer = new THREE.WebGLRenderer({ antialias:true });
+camera.position.set(0, 200, 3000);
+
+/* RENDERER */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(container.clientWidth, container.clientHeight);
 container.appendChild(renderer.domElement);
 
@@ -108,57 +111,32 @@ container.appendChild(renderer.domElement);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
 /* LIGHT */
-scene.add(new THREE.AmbientLight(0xffffff,1));
+scene.add(new THREE.AmbientLight(0xffffff, 1));
 
 /* MODEL */
-new THREE.GLTFLoader().load("dumyRFQ_4webpagetest.glb",(gltf)=>{
+new THREE.GLTFLoader().load("dumyRFQ_4webpagetest.glb", (gltf) => {
     scene.add(gltf.scene);
 });
 
-/* CAMERA VIEWS */
-const views=[
-{pos:new THREE.Vector3(900,300,7000),target:new THREE.Vector3(0,0,7000)},
-{pos:new THREE.Vector3(-100,-100,0),target:new THREE.Vector3(0,0,7000)}
-];
-
-let current=0;
-
-function nextCameraView(){
-    current=(current+1)%views.length;
-    camera.position.copy(views[current].pos);
-    controls.target.copy(views[current].target);
-}
-
-/* PC */
-window.addEventListener("keydown",(e)=>{
-    if(e.code==="Space") nextCameraView();
-});
-
-/* MOBILE DOUBLE TAP */
-let lastTap=0;
-renderer.domElement.addEventListener("touchend",(e)=>{
-    const now=performance.now();
-    if(now-lastTap<300){
-        e.preventDefault();
-        nextCameraView();
-    }
-    lastTap=now;
-},{passive:false});
-
 /* LOOP */
-function animate(){
+function animate() {
     requestAnimationFrame(animate);
     controls.update();
-    renderer.render(scene,camera);
+    renderer.render(scene, camera);
 }
 animate();
 
 /* RESIZE */
-window.addEventListener("resize",()=>{
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    camera.aspect = container.clientWidth / container.clientHeight;
+function resize() {
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
     camera.updateProjectionMatrix();
-});
+}
+window.addEventListener("resize", resize);
+resize();
+
 </script>
 
 </body>
